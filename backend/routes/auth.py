@@ -10,17 +10,33 @@ auth_bp = Blueprint('auth', __name__)
 # --- User Registration ---
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    data = request.json
-    if User.query.filter_by(username=data['username']).first():
+    # Accept JSON or form-encoded bodies
+    data = request.get_json(silent=True)
+    if not data or not isinstance(data, dict):
+        data = request.form.to_dict()
+
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    # frontend sends email but our model doesn't store it; ignore safely
+
+    if not username or not password:
+        return jsonify({"error": "username and password are required"}), 400
+
+    if User.query.filter_by(username=username).first():
         return jsonify({"error": "User already exists"}), 400
-    
-    new_user = User(
-        username=data['username'],
-        password=generate_password_hash(data['password']),
-        role="user"  # default role
-    )
-    db.session.add(new_user)
-    db.session.commit()
+
+    try:
+        new_user = User(
+            username=username,
+            password=generate_password_hash(password),
+            role="user"
+        )
+        db.session.add(new_user)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Registration failed", "detail": str(e)}), 500
+
     return jsonify({"message": "User registered successfully"}), 201
 
 
@@ -28,18 +44,26 @@ def register():
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.json
+    print(f"DEBUG: Login attempt for username: {data.get('username')}")
     user = User.query.filter_by(username=data['username']).first()
-    
+
     if not user or not check_password_hash(user.password, data['password']):
+        print(f"DEBUG: Login failed for user: {data.get('username')}")
         return jsonify({"error": "Invalid username or password"}), 401
-    
-    # Create JWT token
-    access_token = create_access_token(identity={"id": user.id, "role": user.role})
+
+    # ✅ FIX: identity must be a string
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={"role": user.role}
+    )
+
+    print(f"DEBUG: Login successful for user: {user.username}, role: {user.role}")
     return jsonify({
         "access_token": access_token,
         "role": user.role,
         "message": f"Welcome {user.role}"
     }), 200
+
 
 
 # --- Protected Dashboard Example ---
