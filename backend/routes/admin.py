@@ -6,6 +6,7 @@ from models.ParkingLot import ParkingLot
 from models.ParkingSpot import ParkingSpot
 from models.Reservation import Reservation
 from datetime import datetime
+from sqlalchemy import func
 
 admin_bp = Blueprint("admin_bp", __name__)
 
@@ -276,3 +277,37 @@ def view_all_reservations():
         })
 
     return jsonify(result), 200
+# ------------------------------------------------------------
+# Admin Analytics
+# ------------------------------------------------------------
+@admin_bp.route("/analytics", methods=["GET"])
+@jwt_required()
+def admin_analytics():
+    check = check_admin()
+    if check:
+        return check
+
+    # Join Reservation → ParkingSpot → ParkingLot
+    analytics = (
+        db.session.query(
+            ParkingLot.prime_location_name.label("lot_name"),
+            func.count(Reservation.id).label("total_reservations"),
+            func.coalesce(func.sum(Reservation.parking_cost), 0).label("total_revenue"),
+        )
+        .join(ParkingSpot, ParkingSpot.id == Reservation.spot_id)
+        .join(ParkingLot, ParkingLot.id == ParkingSpot.lot_id)
+        .group_by(ParkingLot.id)
+        .all()
+    )
+
+    # Convert query results to list of dicts
+    data = [
+        {
+            "lot_name": a.lot_name,
+            "total_reservations": int(a.total_reservations),
+            "total_revenue": float(a.total_revenue),
+        }
+        for a in analytics
+    ]
+
+    return jsonify(data), 200

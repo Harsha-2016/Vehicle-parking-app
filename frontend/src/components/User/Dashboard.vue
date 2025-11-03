@@ -94,11 +94,18 @@
       </div>
       <p v-else class="text-muted">No past reservations yet.</p>
     </section>
+    <hr />
+
+    <!-- User Analytics Section -->
+    <section class="mb-5">
+      <UserAnalytics />
+    </section>
   </div>
 </template>
 
 <script>
 import axios from "axios";
+import UserAnalytics from "./UserAnalytics.vue"; 
 
 export default {
   name: "UserDashboard",
@@ -110,6 +117,9 @@ export default {
       loading: false,
       username: localStorage.getItem("username") || null,
     };
+  },
+  components: {
+    UserAnalytics, // 👈 register component
   },
   methods: {
     async fetchLots() {

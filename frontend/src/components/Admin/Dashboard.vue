@@ -37,6 +37,12 @@
       >
         Parking History
       </button>
+      <button
+        :class="['tab', activeTab === 'analytics' ? 'active' : '']"
+        @click="activeTab = 'analytics'"
+      >
+        Analytics
+      </button>
     </div>
 
     <!-- Tab Content -->
@@ -44,6 +50,7 @@
       <Lots v-if="activeTab === 'lots'" />
       <Users v-if="activeTab === 'users'" />
       <ParkingHistory v-if="activeTab === 'history'" />
+      <AdminAnalytics v-if="activeTab === 'analytics'" />
     </div>
   </div>
 </template>
@@ -53,10 +60,11 @@ import axios from "axios";
 import Lots from "./Lots.vue";
 import Users from "./Users.vue";
 import ParkingHistory from "./ParkingHistory.vue";
+import AdminAnalytics from "./AdminAnalytics.vue";
 
 export default {
   name: "Dashboard",
-  components: { Lots, Users, ParkingHistory },
+  components: { Lots, Users, ParkingHistory,AdminAnalytics },
   data() {
     return {
       lotCount: 0,

@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity,get_jwt
 from datetime import datetime
 import math
+from sqlalchemy import func
 
 # Import your models & db object the same way your admin file does.
 # If you used a models aggregator `backend.models.models`, import from there;
@@ -230,3 +231,63 @@ def my_reservations():
             "duration": duration_str
         })
     return jsonify(data), 200
+
+# -----------------------------
+# User analytics
+# -----------------------------
+@user_bp.route("/analytics", methods=["GET"])
+@jwt_required()
+def user_analytics():
+    # validate user and extract id
+    user_id, error = check_user()        # your check_user returns (user_id, None) or (None, error)
+    if error:
+        return error
+
+    try:
+        # Only include reservations that have a leaving_timestamp (completed sessions)
+        # Use SQLite julianday to compute duration hours: (julianday(leaving)-julianday(start)) * 24
+        q = (
+            db.session.query(
+                func.strftime("%Y-%m", Reservation.parking_timestamp).label("month"),
+                func.coalesce(func.sum((func.julianday(Reservation.leaving_timestamp) - func.julianday(Reservation.parking_timestamp)) * 24), 0).label("total_hours"),
+                func.coalesce(func.sum(Reservation.parking_cost), 0).label("total_amount")
+            )
+            .filter(Reservation.user_id == user_id)
+            .filter(Reservation.parking_timestamp != None)
+            .filter(Reservation.leaving_timestamp != None)
+            .group_by("month")
+            .order_by("month")
+        )
+
+        rows = q.all()
+
+        # Build arrays for charts (month labels, hours and amount)
+        parking_stats = []
+        revenue_stats = []
+
+        for r in rows:
+            month = r.month  # e.g. "2025-10"
+            total_hours = float(r.total_hours) if r.total_hours is not None else 0.0
+            total_amount = float(r.total_amount) if r.total_amount is not None else 0.0
+
+            parking_stats.append({"month": month, "hours": round(total_hours, 2)})
+            revenue_stats.append({"month": month, "amount": round(total_amount, 2)})
+
+        # Also compute totals
+        total_hours_all = sum(p["hours"] for p in parking_stats)
+        total_spent_all = sum(r["amount"] for r in revenue_stats)
+
+        return jsonify({
+            "parkingStats": parking_stats,
+            "revenueStats": revenue_stats,
+            "total_hours": round(total_hours_all,2),
+            "total_spent": round(total_spent_all,2)
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print("Error in user_analytics:", e)
+        return jsonify({"error": "Internal server error"}), 500
+    
+
+
