@@ -31,12 +31,19 @@
       >
         View Users
       </button>
+      <button
+        :class="['tab', activeTab === 'history' ? 'active' : '']"
+        @click="activeTab = 'history'"
+      >
+        Parking History
+      </button>
     </div>
 
     <!-- Tab Content -->
     <div class="tab-content">
       <Lots v-if="activeTab === 'lots'" />
       <Users v-if="activeTab === 'users'" />
+      <ParkingHistory v-if="activeTab === 'history'" />
     </div>
   </div>
 </template>
@@ -45,26 +52,18 @@
 import axios from "axios";
 import Lots from "./Lots.vue";
 import Users from "./Users.vue";
+import ParkingHistory from "./ParkingHistory.vue";
 
 export default {
   name: "Dashboard",
-  components: { Lots, Users },
+  components: { Lots, Users, ParkingHistory },
   data() {
     return {
       lotCount: 0,
       userCount: 0,
       activeTab: "lots",
+      username: localStorage.getItem("username"),
     };
-  },
-  
-  methods:{
-    logout() {
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
-      localStorage.removeItem("username");
-      alert("You have been logged out.");
-      this.$router.push("/");
-    },
   },
   async mounted() {
     const token = localStorage.getItem("token");
@@ -83,7 +82,15 @@ export default {
       console.error("Error fetching data:", err.message);
     }
   },
-
+  methods: {
+    logout() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("username");
+      alert("You have been logged out.");
+      this.$router.push("/");
+    },
+  },
 };
 </script>
 
@@ -111,15 +118,6 @@ export default {
 }
 .stat-card:hover {
   transform: translateY(-4px);
-}
-
-.stat-card h2 {
-  margin: 0;
-  font-size: 2rem;
-}
-.stat-card p {
-  margin-top: 10px;
-  font-weight: 500;
 }
 
 /* Tabs */

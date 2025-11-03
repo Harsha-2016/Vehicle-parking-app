@@ -45,6 +45,7 @@ export default {
         headers: { Authorization: `Bearer ${token}` },
       });
       this.users = res.data;
+      console.log("✅ Users fetched successfully:", this.users);
     } catch (err) {
       console.error("❌ Failed to fetch users:", err);
     }

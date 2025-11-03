@@ -76,6 +76,7 @@
               <th>Spot ID</th>
               <th>Start</th>
               <th>End</th>
+              <th>Duration</th>
               <th>Cost (₹)</th>
             </tr>
           </thead>
@@ -85,6 +86,7 @@
               <td>{{ res.spot_id }}</td>
               <td>{{ formatTimestamp(res.parking_timestamp) }}</td>
               <td>{{ formatTimestamp(res.leaving_timestamp) }}</td>
+              <td>{{ res.duration }}</td>
               <td>{{ res.parking_cost }}</td>
             </tr>
           </tbody>
@@ -130,6 +132,7 @@ export default {
         });
 
         const all = res.data;
+        console.log("DEBUG Reservations fetched:", all);
         this.activeReservation = all.find(r => !r.leaving_timestamp) || null;
         this.pastReservations = all.filter(r => r.leaving_timestamp);
       } catch (err) {

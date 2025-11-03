@@ -208,8 +208,17 @@ def my_reservations():
     reservations = Reservation.query.filter_by(user_id=user_id).order_by(Reservation.parking_timestamp.desc()).all()
     data = []
     for r in reservations:
+        duration_str = None
+        if r.leaving_timestamp and r.parking_timestamp:
+            duration = r.leaving_timestamp - r.parking_timestamp
+            total_minutes = int(duration.total_seconds() // 60)
+            hours = total_minutes // 60
+            minutes = total_minutes % 60
+            duration_str = f"{hours} hrs {minutes} mins"
+
         spot = ParkingSpot.query.get(r.spot_id)
         lot = ParkingLot.query.get(spot.lot_id) if spot else None
+
         data.append({
             "reservation_id": r.id,
             "spot_id": r.spot_id,
@@ -217,6 +226,7 @@ def my_reservations():
             "lot_name": lot.prime_location_name if lot else None,
             "parking_timestamp": r.parking_timestamp.isoformat() if r.parking_timestamp else None,
             "leaving_timestamp": r.leaving_timestamp.isoformat() if r.leaving_timestamp else None,
-            "parking_cost": r.parking_cost
+            "parking_cost": r.parking_cost,
+            "duration": duration_str
         })
     return jsonify(data), 200

@@ -233,4 +233,46 @@ def view_all_users():
             "email": u.email,
             "active_spot": spot_id
         })
+        print("User fetched:", u.email, "Active spot:", spot_id)
+    return jsonify(result), 200
+
+
+# ------------------------------------------------------------
+# Admin view: All reservations
+# ------------------------------------------------------------
+@admin_bp.route("/reservations", methods=["GET"])
+@jwt_required()
+def view_all_reservations():
+    check = check_admin()
+    if check:
+        return check
+
+    reservations = Reservation.query.order_by(Reservation.parking_timestamp.desc()).all()
+    result = []
+    for res in reservations:
+        duration_str = None
+        if res.leaving_timestamp and res.parking_timestamp:
+            duration = res.leaving_timestamp - res.parking_timestamp
+            total_minutes = int(duration.total_seconds() // 60)
+            hours = total_minutes // 60
+            minutes = total_minutes % 60
+            duration_str = f"{hours} hrs {minutes} mins"
+
+        user = User.query.get(res.user_id)
+        spot = ParkingSpot.query.get(res.spot_id)
+        lot = ParkingLot.query.get(spot.lot_id) if spot else None
+            
+        result.append({
+            "reservation_id": res.id,
+            "user_name": user.username if user else None,
+            "lot_name": lot.prime_location_name if lot else None,
+            "spot_id": res.spot_id,
+            "lot_id": lot.id if lot else None,
+            "prime_location_name": lot.prime_location_name if lot else None,
+            "parking_timestamp": res.parking_timestamp if res.parking_timestamp else None,
+            "leaving_timestamp": res.leaving_timestamp if res.leaving_timestamp else None,
+            "duration": duration_str,
+            "parking_cost": res.parking_cost
+        })
+
     return jsonify(result), 200

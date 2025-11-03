@@ -17,7 +17,7 @@ def register():
 
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
-    # frontend sends email but our model doesn't store it; ignore safely
+    email = data.get('email') or ''
 
     if not username or not password:
         return jsonify({"error": "username and password are required"}), 400
@@ -29,7 +29,8 @@ def register():
         new_user = User(
             username=username,
             password=generate_password_hash(password),
-            role="user"
+            role="user",
+            email=email
         )
         db.session.add(new_user)
         db.session.commit()
