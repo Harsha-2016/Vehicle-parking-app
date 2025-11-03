@@ -1,6 +1,6 @@
 # backend/routes/user.py
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity,get_jwt
 from datetime import datetime
 import math
 
@@ -14,6 +14,13 @@ from models.ParkingSpot import ParkingSpot
 from models.Reservation import Reservation
 
 user_bp = Blueprint("user_bp", __name__)
+
+def check_user():
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+    if claims.get("role") != "user":
+        return jsonify({"msg": "User access required"}), 403
+    return int(user_id),None
 
 # -----------------------------
 # Get available parking lots (summary)
@@ -48,10 +55,9 @@ def get_lots():
 @user_bp.route("/reserve", methods=["POST"])
 @jwt_required()
 def reserve_spot():
-    current = get_jwt_identity()
-    # Only users should reserve. (Admins shouldn't reserve via user endpoints.)
-    if current["role"] != "user":
-        return jsonify({"error": "Only users can reserve spots"}), 403
+    user_id,error=check_user()
+    if error:
+        return error
 
     data = request.get_json()
     lot_id = data.get("lot_id")
@@ -72,7 +78,7 @@ def reserve_spot():
         spot.status = "O"
         reservation = Reservation(
             spot_id=spot.id,
-            user_id=current["id"],
+            user_id=user_id,
             parking_timestamp=datetime.utcnow(),
             leaving_timestamp=None,
             parking_cost=0.0
@@ -100,17 +106,16 @@ def reserve_spot():
 @user_bp.route("/occupy", methods=["POST"])
 @jwt_required()
 def occupy_spot():
-    current = get_jwt_identity()
-    if current["role"] != "user":
-        return jsonify({"error": "Only users can occupy spots"}), 403
-
+    user_id,error=check_user()
+    if error:
+        return error
     data = request.get_json()
     res_id = data.get("reservation_id")
     if not res_id:
         return jsonify({"error": "reservation_id required"}), 400
 
     reservation = Reservation.query.get(res_id)
-    if not reservation or reservation.user_id != current["id"]:
+    if not reservation or reservation.user_id != user_id:
         return jsonify({"error": "Reservation not found"}), 404
 
     # If someone reserved but didn't set status, we mark parking_timestamp now.
@@ -133,18 +138,24 @@ def occupy_spot():
 @user_bp.route("/release", methods=["POST"])
 @jwt_required()
 def release_spot():
-    current = get_jwt_identity()
-    if current["role"] != "user":
-        return jsonify({"error": "Only users can release spots"}), 403
-
+    user_id,error=check_user()
+    if error:
+        return error
+    
+   # print("DEBUG occupy_spot called by user_id:", user_id,type(user_id))
     data = request.get_json()
+    #print("DEBUG Incoming data:", data) 
     res_id = data.get("reservation_id")
     if not res_id:
         return jsonify({"error": "reservation_id required"}), 400
 
     reservation = Reservation.query.get(res_id)
-    if not reservation or reservation.user_id != current["id"]:
-        return jsonify({"error": "Reservation not found"}), 404
+    #print("DEBUG user_id:", user_id, "res_id:", reservation)
+    #print("DEBUG reservation details:", reservation.user_id,type(reservation.user_id) if reservation else "N/A")
+    if (reservation==None) :
+        return jsonify({"error": "Reservation not found 1" }), 404
+    if( reservation.user_id != user_id):
+        return jsonify({"error": "Reservation not found 2"}), 404
 
     if reservation.leaving_timestamp is not None:
         return jsonify({"error": "Reservation already released"}), 400
@@ -161,8 +172,10 @@ def release_spot():
 
     # calculate duration in seconds
     duration_sec = (reservation.leaving_timestamp - reservation.parking_timestamp).total_seconds()
+    #print("DEBUG Parking duration (sec):", duration_sec)
     # Bill per hour — round up to next whole hour
     hours = math.ceil(duration_sec / 3600) if duration_sec > 0 else 0
+    #print("DEBUG Parking duration (hours):", hours)
     cost = hours * float(lot.price_per_hour)
 
     reservation.parking_cost = cost
@@ -187,11 +200,11 @@ def release_spot():
 @user_bp.route("/me/reservations", methods=["GET"])
 @jwt_required()
 def my_reservations():
-    current = get_jwt_identity()
-    if current["role"] != "user":
-        return jsonify({"error": "Only users can access their reservations"}), 403
+    user_id,error=check_user()
+    if error:
+        return error
 
-    user_id = current["id"]
+    user_id = user_id
     reservations = Reservation.query.filter_by(user_id=user_id).order_by(Reservation.parking_timestamp.desc()).all()
     data = []
     for r in reservations:

@@ -1,82 +1,213 @@
 <template>
-  <div class="container mt-4">
-    <h3>User Dashboard</h3>
+  <div class="container py-4">
+    <h2 class="text-center mb-4">User Dashboard</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h5>👋 Welcome, {{ username || 'User' }}</h5>
+      <button class="btn btn-danger btn-sm" @click="logout">Logout</button>
+    </div>
 
-    <h5 class="mt-3">Available Parking Lots</h5>
-    <table class="table table-bordered mt-2">
-      <thead>
-        <tr>
-          <th>Lot ID</th>
-          <th>Location</th>
-          <th>Price/hr</th>
-          <th>Total</th>
-          <th>Available</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="lot in lots" :key="lot.lot_id">
-          <td>{{ lot.lot_id }}</td>
-          <td>{{ lot.prime_location_name }}</td>
-          <td>{{ lot.price }}</td>
-          <td>{{ lot.total_spots }}</td>
-          <td>{{ lot.available_spots }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" :disabled="lot.available_spots === 0" @click="reserve(lot.lot_id)">
-              Reserve
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- Available Lots Section -->
+    <section class="mb-5">
+      <h4 class="mb-3">Available Parking Lots</h4>
+      <div v-if="lots.length" class="row">
+        <div v-for="lot in lots" :key="lot.lot_id" class="col-md-4 mb-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h5 class="card-title">{{ lot.prime_location_name }}</h5>
+              <p class="card-text mb-1"><strong>Address:</strong> {{ lot.address }}</p>
+              <p class="card-text mb-1"><strong>Pin Code:</strong> {{ lot.pin_code }}</p>
+              <p class="card-text mb-1">
+                <strong>Spots:</strong> {{ lot.available_spots }} / {{ lot.total_spots }}
+              </p>
+              <p class="card-text mb-3"><strong>Price/hour:</strong> ₹{{ lot.price }}</p>
+
+              <button
+                class="btn btn-primary w-100"
+                :disabled="lot.available_spots === 0 || activeReservation"
+                @click="reserveSpot(lot.lot_id)"
+              >
+                {{ lot.available_spots === 0 ? 'Full' : 'Reserve Spot' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p v-else class="text-muted">No parking lots available.</p>
+    </section>
 
     <hr />
 
-    <reservation-history />
+    <!-- Active Reservation -->
+    <section class="mb-5" v-if="activeReservation">
+      <h4 class="mb-3">Your Active Reservation</h4>
+      <div class="card border-success shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Lot: {{ activeReservation.lot_name }}</h5>
+          <p class="card-text mb-1"><strong>Spot ID:</strong> {{ activeReservation.spot_id }}</p>
+          <p class="card-text mb-1">
+            <strong>Start Time:</strong>
+            {{ formatTimestamp(activeReservation.parking_timestamp) }}
+          </p>
+          <button
+            class="btn btn-danger mt-2"
+            @click="releaseSpot(activeReservation.reservation_id)"
+          >
+            Release Spot
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section v-else class="text-muted mb-5">
+      <h4>Your Active Reservation</h4>
+      <p>No active reservation currently.</p>
+    </section>
+
+    <hr />
+
+    <!-- Reservation History -->
+    <section>
+      <h4 class="mb-3">Reservation History</h4>
+      <div v-if="pastReservations.length">
+        <table class="table table-striped table-bordered">
+          <thead class="table-dark">
+            <tr>
+              <th>Lot Name</th>
+              <th>Spot ID</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Cost (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="res in pastReservations" :key="res.reservation_id">
+              <td>{{ res.lot_name }}</td>
+              <td>{{ res.spot_id }}</td>
+              <td>{{ formatTimestamp(res.parking_timestamp) }}</td>
+              <td>{{ formatTimestamp(res.leaving_timestamp) }}</td>
+              <td>{{ res.parking_cost }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-else class="text-muted">No past reservations yet.</p>
+    </section>
   </div>
 </template>
 
 <script>
-import API from '@/services/api'
-import ReservationHistory from './Reservation.vue'
+import axios from "axios";
 
 export default {
-  components: { ReservationHistory },
+  name: "UserDashboard",
   data() {
     return {
-      lots: []
-    }
+      lots: [],
+      activeReservation: null,
+      pastReservations: [],
+      loading: false,
+      username: localStorage.getItem("username") || null,
+    };
   },
   methods: {
-    async loadLots() {
+    async fetchLots() {
       try {
-        const res = await API.get('/user/lots')
-        this.lots = res.data
+        const token = localStorage.getItem("token");
+        const res = await axios.get("http://127.0.0.1:5000/user/lots", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        this.lots = res.data;
       } catch (err) {
-        console.error(err)
-        alert(err.response?.data?.error || 'Failed to load lots')
+        console.error("Error fetching lots:", err.response?.data || err.message);
       }
     },
-    async reserve(lotId) {
+
+    async fetchReservations() {
       try {
-        const res = await API.post('/user/reserve', { lot_id: lotId })
-        alert('Reserved! Spot ID: ' + res.data.spot_id)
-        this.loadLots()
-        // Also tell the history component to refresh (emit event or use a simple solution)
-        this.$root.$emit('reservations-updated')
+        const token = localStorage.getItem("token");
+        const res = await axios.get("http://127.0.0.1:5000/user/me/reservations", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const all = res.data;
+        this.activeReservation = all.find(r => !r.leaving_timestamp) || null;
+        this.pastReservations = all.filter(r => r.leaving_timestamp);
       } catch (err) {
-        console.error(err)
-        alert(err.response?.data?.error || 'Reserve failed')
+        console.error("Error fetching reservations:", err.response?.data || err.message);
       }
-    }
+    },
+
+    async reserveSpot(lotId) {
+      if (!confirm("Reserve a spot in this lot?")) return;
+
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.post(
+          "http://127.0.0.1:5000/user/reserve",
+          { lot_id: lotId },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        alert("✅ Spot reserved successfully!");
+        await this.fetchLots();
+        await this.fetchReservations();
+      } catch (err) {
+        alert(err.response?.data?.error || "Reservation failed");
+      }
+    },
+
+    async releaseSpot(reservationId) {
+      if (!confirm("Release this spot?")) return;
+
+      try {
+         console.log("DEBUG Sending reservation_id:", reservationId);
+        const token = localStorage.getItem("token");
+        const res = await axios.post(
+          "http://127.0.0.1:5000/user/release",
+          { reservation_id: reservationId },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        alert(`✅ Spot released! Cost: ₹${res.data.parking_cost}`);
+        await this.fetchLots();
+        await this.fetchReservations();
+      } catch (err) {
+        alert(err.response?.data?.error || "Release failed");
+      }
+    },
+
+    formatTimestamp(ts) {
+      if (!ts) return "—";
+    // Ensure the backend UTC timestamp is treated as UTC
+    const date = new Date(ts + "Z");
+    return date.toLocaleString(); // Converts automatically to your local (IST) timezone
+    },
+    logout() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("username");
+      alert("You have been logged out.");
+      this.$router.push("/");
+    },
   },
-  mounted() {
-    this.loadLots()
-    // refresh after reservations changed
-    this.$root.$on('reservations-updated', this.loadLots)
+  async mounted() {
+    await this.fetchLots();
+    await this.fetchReservations();
   },
-  beforeUnmount() {
-    this.$root.$off('reservations-updated', this.loadLots)
-  }
-}
+};
 </script>
+
+<style scoped>
+.card {
+  border-radius: 12px;
+}
+.card-title {
+  color: #007bff;
+}
+section {
+  margin-bottom: 40px;
+}
+hr {
+  margin: 40px 0;
+}
+</style>

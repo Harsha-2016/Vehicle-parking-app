@@ -1,6 +1,9 @@
 <template>
   <div class="dashboard-container">
-    <h1>Admin Dashboard</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2>👋 Welcome, {{ username || 'Admin' }}</h2>
+      <button class="btn btn-danger btn-sm" @click="logout">Logout</button>
+    </div>
 
     <!-- Stats Cards -->
     <div class="stats-container">
@@ -53,6 +56,16 @@ export default {
       activeTab: "lots",
     };
   },
+  
+  methods:{
+    logout() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("username");
+      alert("You have been logged out.");
+      this.$router.push("/");
+    },
+  },
   async mounted() {
     const token = localStorage.getItem("token");
     try {
@@ -70,6 +83,7 @@ export default {
       console.error("Error fetching data:", err.message);
     }
   },
+
 };
 </script>
 

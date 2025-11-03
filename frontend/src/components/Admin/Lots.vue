@@ -205,6 +205,10 @@ export default {
       }
     },
     editLot(lot) {
+      if (lot.occupied_spots > 0) {
+        alert("⚠️ Cannot edit this lot while spots are occupied.");
+      return;
+     }
       this.editingLot = { ...lot }; // create a copy for editing
       console.log("Editing lot:", this.editingLot);
     },
@@ -227,7 +231,14 @@ export default {
     },
 
     async deleteLot(id) {
+      const lot = this.lots.find(l => l.id === id);
+      if (lot && lot.occupied_spots > 0) {
+        alert("⚠️ Cannot delete this lot while spots are occupied.");
+      return;
+      }
+
       if (!confirm("Are you sure you want to delete this parking lot?")) return;
+      
       try {
         const token = localStorage.getItem("token");
         const response = await axios.delete(
