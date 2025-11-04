@@ -9,5 +9,4 @@ class ParkingSpot(db.Model):
 
     reservation = db.relationship("Reservation", backref="spot", lazy=True, uselist=False)
 
-    def __repr__(self):
-        return f"<Spot {self.id} - Lot {self.lot_id} - {self.status}>"
+    

@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity,get_jwt
 from datetime import datetime
 import math
 from sqlalchemy import func
+from extensions import cache
 
 # Import your models & db object the same way your admin file does.
 # If you used a models aggregator `backend.models.models`, import from there;
@@ -28,6 +29,7 @@ def check_user():
 # -----------------------------
 @user_bp.route("/lots", methods=["GET"])
 @jwt_required()
+@cache.cached(timeout=120)
 def get_lots():
     # Any logged-in user (admin or user) can view lots.
     lots = ParkingLot.query.all()
@@ -98,43 +100,9 @@ def reserve_spot():
         return jsonify({"error": "Failed to reserve spot", "detail": str(e)}), 500
 
 
-# -----------------------------
-# Occupy a spot (explicit action)
-# Some flows auto-mark occupied at reservation time; this endpoint
-# can serve if you require explicit "I parked now" action.
-# Body: { "reservation_id": <int> }
-# -----------------------------
-@user_bp.route("/occupy", methods=["POST"])
-@jwt_required()
-def occupy_spot():
-    user_id,error=check_user()
-    if error:
-        return error
-    data = request.get_json()
-    res_id = data.get("reservation_id")
-    if not res_id:
-        return jsonify({"error": "reservation_id required"}), 400
-
-    reservation = Reservation.query.get(res_id)
-    if not reservation or reservation.user_id != user_id:
-        return jsonify({"error": "Reservation not found"}), 404
-
-    # If someone reserved but didn't set status, we mark parking_timestamp now.
-    if reservation.parking_timestamp is None:
-        reservation.parking_timestamp = datetime.utcnow()
-
-    # Also ensure spot is marked 'O'
-    spot = ParkingSpot.query.get(reservation.spot_id)
-    spot.status = "O"
-    db.session.commit()
-
-    return jsonify({"message": "Spot occupied", "spot_id": spot.id}), 200
-
 
 # -----------------------------
 # Release a spot (end parking)
-# Path param option OR body: { "reservation_id": <int> }
-# We use body here.
 # -----------------------------
 @user_bp.route("/release", methods=["POST"])
 @jwt_required()
@@ -200,6 +168,7 @@ def release_spot():
 # -----------------------------
 @user_bp.route("/me/reservations", methods=["GET"])
 @jwt_required()
+@cache.cached(timeout=60)
 def my_reservations():
     user_id,error=check_user()
     if error:

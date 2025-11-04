@@ -7,6 +7,7 @@ from models.ParkingSpot import ParkingSpot
 from models.Reservation import Reservation
 from datetime import datetime
 from sqlalchemy import func
+from extensions import cache
 
 admin_bp = Blueprint("admin_bp", __name__)
 
@@ -243,6 +244,7 @@ def view_all_users():
 # ------------------------------------------------------------
 @admin_bp.route("/reservations", methods=["GET"])
 @jwt_required()
+@cache.cached(timeout=180)
 def view_all_reservations():
     check = check_admin()
     if check:
@@ -282,6 +284,7 @@ def view_all_reservations():
 # ------------------------------------------------------------
 @admin_bp.route("/analytics", methods=["GET"])
 @jwt_required()
+@cache.cached(timeout=300)
 def admin_analytics():
     check = check_admin()
     if check:

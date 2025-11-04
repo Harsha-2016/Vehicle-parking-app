@@ -11,5 +11,4 @@ class Reservation(db.Model):
     leaving_timestamp = db.Column(db.DateTime)
     parking_cost = db.Column(db.Float, default=0.0)
 
-    def __repr__(self):
-        return f"<Reservation {self.id} User:{self.user_id} Spot:{self.spot_id}>"
+    

@@ -13,5 +13,4 @@ class User(db.Model):
 
     reservations = db.relationship("Reservation", backref="user", lazy=True)
 
-    def __repr__(self):
-        return f"<User {self.username}>"
+    

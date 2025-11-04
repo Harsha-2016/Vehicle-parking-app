@@ -12,5 +12,4 @@ class ParkingLot(db.Model):
 
     spots = db.relationship("ParkingSpot", backref="lot", lazy=True)
 
-    def __repr__(self):
-        return f"<ParkingLot {self.prime_location_name}>"
+    

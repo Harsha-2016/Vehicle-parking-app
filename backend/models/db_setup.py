@@ -17,10 +17,10 @@ def init_db(app: Flask):
 
     with app.app_context():
         # Import all models so relationships resolve before mapper configuration
-        from .User import User  # noqa: F401
-        from .Reservation import Reservation  # noqa: F401
-        from .ParkingSpot import ParkingSpot  # noqa: F401
-        from .ParkingLot import ParkingLot  # noqa: F401
+        from .User import User  
+        from .Reservation import Reservation  
+        from .ParkingSpot import ParkingSpot  
+        from .ParkingLot import ParkingLot  
         db.create_all()
 
         # ✅ Ensure admin exists
