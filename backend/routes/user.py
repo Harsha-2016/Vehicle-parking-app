@@ -4,16 +4,15 @@ from flask_jwt_extended import jwt_required, get_jwt_identity,get_jwt
 from datetime import datetime
 import math
 from sqlalchemy import func
-from extensions import cache
 
 # Import your models & db object the same way your admin file does.
 # If you used a models aggregator `backend.models.models`, import from there;
 # otherwise import individually. Adjust this import to match your project.
-from models.db_setup import db
-from models.User import User
-from models.ParkingLot import ParkingLot
-from models.ParkingSpot import ParkingSpot
-from models.Reservation import Reservation
+from backend.models.db_setup import db,cache
+from backend.models.User import User
+from backend.models.ParkingLot import ParkingLot
+from backend.models.ParkingSpot import ParkingSpot
+from backend.models.Reservation import Reservation
 
 user_bp = Blueprint("user_bp", __name__)
 
@@ -111,20 +110,20 @@ def release_spot():
     if error:
         return error
     
-   # print("DEBUG occupy_spot called by user_id:", user_id,type(user_id))
+    print("DEBUG occupy_spot called by user_id:", user_id,type(user_id))
     data = request.get_json()
-    #print("DEBUG Incoming data:", data) 
+    print("DEBUG Incoming data:", data) 
     res_id = data.get("reservation_id")
     if not res_id:
         return jsonify({"error": "reservation_id required"}), 400
 
     reservation = Reservation.query.get(res_id)
-    #print("DEBUG user_id:", user_id, "res_id:", reservation)
-    #print("DEBUG reservation details:", reservation.user_id,type(reservation.user_id) if reservation else "N/A")
+    print("DEBUG user_id:", user_id, "res_id:", reservation)
+    print("DEBUG reservation details:", reservation.user_id,type(reservation.user_id) if reservation else "N/A")
     if (reservation==None) :
         return jsonify({"error": "Reservation not found 1" }), 404
     if( reservation.user_id != user_id):
-        return jsonify({"error": "Reservation not found 2"}), 404
+        return jsonify({"error": "User ID not matched"}), 404
 
     if reservation.leaving_timestamp is not None:
         return jsonify({"error": "Reservation already released"}), 400
@@ -132,8 +131,7 @@ def release_spot():
     reservation.leaving_timestamp = datetime.utcnow()
 
     # compute cost:
-    lot = ParkingLot.query.join(ParkingSpot, ParkingSpot.lot_id == ParkingLot.id)\
-                          .filter(ParkingSpot.id == reservation.spot_id).first()
+    lot = ParkingLot.query.join(ParkingSpot, ParkingSpot.lot_id == ParkingLot.id).filter(ParkingSpot.id == reservation.spot_id).first()
     if not lot:
         # fallback: query via spot
         spot = ParkingSpot.query.get(reservation.spot_id)
@@ -141,10 +139,10 @@ def release_spot():
 
     # calculate duration in seconds
     duration_sec = (reservation.leaving_timestamp - reservation.parking_timestamp).total_seconds()
-    #print("DEBUG Parking duration (sec):", duration_sec)
+    print("DEBUG Parking duration (sec):", duration_sec)
     # Bill per hour — round up to next whole hour
     hours = math.ceil(duration_sec / 3600) if duration_sec > 0 else 0
-    #print("DEBUG Parking duration (hours):", hours)
+    print("DEBUG Parking duration (hours):", hours)
     cost = hours * float(lot.price_per_hour)
 
     reservation.parking_cost = cost

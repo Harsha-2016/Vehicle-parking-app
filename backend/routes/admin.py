@@ -1,13 +1,13 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from models.db_setup import db
-from models.User import User
-from models.ParkingLot import ParkingLot
-from models.ParkingSpot import ParkingSpot
-from models.Reservation import Reservation
+from backend.models.db_setup import db,cache
+from backend.models.User import User
+from backend.models.ParkingLot import ParkingLot
+from backend.models.ParkingSpot import ParkingSpot
+from backend.models.Reservation import Reservation
 from datetime import datetime
 from sqlalchemy import func
-from extensions import cache
+from backend.tasks import export_parking_history_task
 
 admin_bp = Blueprint("admin_bp", __name__)
 
@@ -314,3 +314,20 @@ def admin_analytics():
     ]
 
     return jsonify(data), 200
+# ------------------------------------------------------------
+# 📤 Export Parking/Reservation History to CSV and Email
+# ------------------------------------------------------------
+@admin_bp.route("/export-history", methods=["GET"])
+@jwt_required()
+def export_reservation_history():
+    check = check_admin()
+    if check:
+        return check
+    try:
+        admin_email = "23f3001911@ds.study.iitm.ac.in"  # or fetch from JWT identity if dynamic
+        export_parking_history_task.delay(admin_email)
+        return jsonify({"message": "Export started. You’ll receive an email once it’s ready."}), 200
+    except Exception as e:
+        print(f"❌ Error triggering export: {e}")
+        return jsonify({"error": str(e)}), 500
+        

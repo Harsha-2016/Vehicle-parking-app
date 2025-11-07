@@ -2,8 +2,8 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from models.db_setup import db
-from models.User import User
+from backend.models.db_setup import db
+from backend.models.User import User
 
 
 auth_bp = Blueprint('auth', __name__)
@@ -77,3 +77,5 @@ def dashboard():
     if current_user["role"] == "admin":
         return jsonify({"dashboard": "Admin Dashboard"}), 200
     return jsonify({"dashboard": "User Dashboard"}), 200
+
+#celery -A tasks.celery beat --loglevel=info

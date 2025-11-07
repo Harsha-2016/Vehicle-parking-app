@@ -49,7 +49,15 @@
     <div class="tab-content">
       <Lots v-if="activeTab === 'lots'" />
       <Users v-if="activeTab === 'users'" />
-      <ParkingHistory v-if="activeTab === 'history'" />
+      <div v-if="activeTab === 'history'" class="history-section">
+        <ParkingHistory />
+
+        <div class="export-container">
+          <button class="btn btn-success" @click="downloadCSV">
+            ⬇️ Export Reservation History (CSV)
+          </button>
+        </div>
+      </div>
       <AdminAnalytics v-if="activeTab === 'analytics'" />
     </div>
   </div>
@@ -64,7 +72,7 @@ import AdminAnalytics from "./AdminAnalytics.vue";
 
 export default {
   name: "Dashboard",
-  components: { Lots, Users, ParkingHistory,AdminAnalytics },
+  components: { Lots, Users, ParkingHistory, AdminAnalytics },
   data() {
     return {
       lotCount: 0,
@@ -98,7 +106,25 @@ export default {
       alert("You have been logged out.");
       this.$router.push("/");
     },
+    async downloadCSV() {
+      
+      const token = localStorage.getItem("token");
+      try {
+        const response = await axios.get(
+            "http://127.0.0.1:5000/admin/export-history",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          } 
+          );
+
+        // ✅ The server now sends a simple success message (not a file)
+        alert(response.data.message || "✅ Export started! You’ll get the file soon.");
+      } catch (err) {
+          console.error("Error exporting CSV:", err.response?.data || err.message);
+          alert("❌ Failed to start export.");
+    }
   },
+},
 };
 </script>
 
@@ -128,7 +154,6 @@ export default {
   transform: translateY(-4px);
 }
 
-/* Tabs */
 .tabs {
   display: flex;
   justify-content: center;
@@ -152,12 +177,27 @@ export default {
   background: #d0d0d0;
 }
 
-/* Content */
 .tab-content {
   margin-top: 40px;
   background: #fafafa;
   padding: 30px;
   border-radius: 12px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.export-container {
+  margin-top: 30px;
+}
+.btn-success {
+  background-color: #28a745;
+  border: none;
+  padding: 10px 20px;
+  font-weight: bold;
+  border-radius: 8px;
+  color: white;
+  transition: background 0.3s ease;
+}
+.btn-success:hover {
+  background-color: #218838;
 }
 </style>
