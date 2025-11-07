@@ -1,3 +1,11 @@
+.env 
+.db
+instance/
+__pycache__/
+.bat
+.dir
+.dat
+
 # Logs
 logs
 *.log

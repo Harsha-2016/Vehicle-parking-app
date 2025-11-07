@@ -9,6 +9,9 @@ from backend.models.Reservation import Reservation
 from backend.models.ParkingLot import ParkingLot
 from werkzeug.security import generate_password_hash
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 def create_app():
     app = Flask(__name__)
@@ -16,7 +19,7 @@ def create_app():
     db_path = os.path.join(base_dir, "..", "smart_parking.db")  # go one level up
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = 'supersecret'
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY',)
     app.config['CACHE_DEFAULT_TIMEOUT'] = 300
 
     # Initialize extensions
